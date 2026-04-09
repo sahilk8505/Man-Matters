@@ -357,7 +357,7 @@ tr:hover td{background:rgba(255,255,255,.025)}
 // ╔══════════════════════════════════════════════════════╗
 // ║  STEP 1: Paste your Apps Script Web App URL below   ║
 // ╚══════════════════════════════════════════════════════╝
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdwSqD4b5EecUJKhj4r1bbjYKji7KWTYVWxRen_RVgC5CJttuZhlLlJzrQv-1HLJO4/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHCCKBjAs3padANkviNSKZHK0xMXDB4cl2eYRHkxxzCk93lyAQQj_BydBnpX9N0qn4/exec';
 // Example: 'https://script.google.com/macros/s/AKfycb.../exec'
 
 let state = { tab:'overall', overall:null, product:null, filters:null, charts:{} };
@@ -368,11 +368,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('toDate').value   = fmt(today);
   document.getElementById('fromDate').value = fmt(d30);
 
-  if (APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
-    hideOverlay();
-    showConfigNote();
-    return;
-  }
   await loadFilters();
   await loadData();
 });
