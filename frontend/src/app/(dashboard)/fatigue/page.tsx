@@ -59,7 +59,7 @@ export default function FatigueDashboard() {
 
   if (loading) return <LoadingSkeleton />;
 
-  const dist = dashboard?.distribution || {};
+  const dist = (dashboard?.distribution || {}) as Record<string, { count: number; avg_score: number }>;
   const total = Object.values(dist).reduce((sum, d) => sum + (d?.count || 0), 0);
 
   return (

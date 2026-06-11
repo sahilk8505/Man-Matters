@@ -154,7 +154,7 @@ export default function ProductDashboard() {
                 name: formatNarrative(n.narrative_type).slice(0, 12),
                 roas: n.avg_roas,
                 spend_pct: n.spend_pct,
-                purchase_pct: n.purchase_pct,
+                purchase_share_pct: n.purchase_pct,
                 creative_count: n.creative_count,
               }))}
             >
@@ -164,7 +164,7 @@ export default function ProductDashboard() {
               <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
               <Tooltip />
               <Bar yAxisId="roas" dataKey="roas" name="Avg ROAS" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="pct" dataKey="purchase_pct" name="Purchase Share %" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar yAxisId="pct" dataKey="purchase_share_pct" name="Purchase Share %" fill="#22c55e" radius={[4, 4, 0, 0]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </BarChart>
           </ResponsiveContainer>
@@ -211,7 +211,7 @@ export default function ProductDashboard() {
                   <div>
                     <p className="font-medium text-sm text-blue-900">{gap.narrative_name || formatNarrative(gap.narrative_type)}</p>
                     <p className="text-xs text-blue-700 mt-0.5">
-                      Drives {gap.purchase_pct.toFixed(1)}% of purchases but only {gap.volume_share_pct.toFixed(1)}% of creatives
+                      Drives {gap.purchase_share_pct.toFixed(1)}% of purchases but only {gap.volume_share_pct.toFixed(1)}% of creatives
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -242,7 +242,7 @@ export default function ProductDashboard() {
                   <div>
                     <p className="font-medium text-sm text-orange-900">{gap.narrative_name || formatNarrative(gap.narrative_type)}</p>
                     <p className="text-xs text-orange-700 mt-0.5">
-                      {gap.volume_share_pct.toFixed(1)}% of creatives but only {gap.purchase_pct.toFixed(1)}% of purchases
+                      {gap.volume_share_pct.toFixed(1)}% of creatives but only {gap.purchase_share_pct.toFixed(1)}% of purchases
                     </p>
                   </div>
                   <div className="text-right shrink-0">
