@@ -91,7 +91,7 @@ export function Sidebar({ products, insightCount = 0 }: SidebarProps) {
 
           {productsOpen && (
             <div className="mt-1 space-y-3">
-              {categories.map((cat) => (
+              {categories.filter((cat) => cat.items.length > 0).map((cat) => (
                 <div key={cat.key}>
                   <p className={cn(
                     "px-3 py-0.5 text-xs font-medium rounded-sm mb-1 w-fit",
