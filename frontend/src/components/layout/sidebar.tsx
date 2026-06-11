@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Grid2X2, Activity, Sparkles, Dna,
-  Eye, Lightbulb, ChevronDown, Package, LogOut,
+  Eye, Lightbulb, ChevronDown, Package,
 } from "lucide-react";
 import { cn, getCategoryColor } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -124,19 +124,6 @@ export function Sidebar({ products, insightCount = 0 }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-border">
-        <button
-          onClick={() => {
-            localStorage.removeItem("mm_cos_token");
-            window.location.href = "/login";
-          }}
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full px-3 py-2 rounded-md hover:bg-accent transition-colors"
-        >
-          <LogOut className="h-3 w-3" />
-          Sign out
-        </button>
-      </div>
     </aside>
   );
 }
