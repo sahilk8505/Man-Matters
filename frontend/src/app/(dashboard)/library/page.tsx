@@ -24,7 +24,7 @@ export default function CreativeLibrary() {
     hook_type: "",
     creator_type: "",
     fatigue_stage: "",
-    status: "active",
+    status: "",
   });
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function CreativeLibrary() {
 
         {Object.values(filters).some(Boolean) && (
           <button
-            onClick={() => setFilters({ product_id: "", narrative_type: "", hook_type: "", creator_type: "", fatigue_stage: "", status: "active" })}
+            onClick={() => setFilters({ product_id: "", narrative_type: "", hook_type: "", creator_type: "", fatigue_stage: "", status: "" })}
             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             Clear filters

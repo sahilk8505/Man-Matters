@@ -10,7 +10,7 @@ from app.api.deps import DbDep, CurrentUser
 from app.models.orm import (
     Product, Creative, CreativeDailyMetrics, FatigueScore,
     NarrativePerformance, Narrative, FormatPerformance, Format,
-    Insight
+    Insight, CreativeMetadata
 )
 
 
@@ -188,7 +188,6 @@ async def product_performance(
         .order_by(func.sum(CreativeDailyMetrics.purchases).desc())
     )
 
-    from app.models.orm import CreativeMetadata
     narratives = narrative_data.all()
     total_purchases = sum(int(r.purchases or 0) for r in narratives)
     total_spend = sum(float(r.spend or 0) for r in narratives)
@@ -265,7 +264,7 @@ async def creative_gaps(product_id: str, db: DbDep, _: CurrentUser):
     """
     from sqlalchemy import text
     result = await db.execute(
-        text("""SELECT * FROM get_narrative_saturation(:product_id::uuid)"""),
+        text("""SELECT * FROM get_narrative_saturation(CAST(:product_id AS uuid))"""),
         {"product_id": product_id},
     )
     rows = result.mappings().all()

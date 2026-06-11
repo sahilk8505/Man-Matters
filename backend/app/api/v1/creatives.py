@@ -110,7 +110,7 @@ async def list_creatives(
     params: dict = {"limit": limit, "offset": offset}
 
     if product_id:
-        filters.append("c.product_id = :product_id::uuid")
+        filters.append("c.product_id = CAST(:product_id AS uuid)")
         params["product_id"] = product_id
     if status:
         filters.append("c.status = :status")
