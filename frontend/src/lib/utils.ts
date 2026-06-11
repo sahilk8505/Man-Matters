@@ -177,6 +177,7 @@ export function getScoreBg(score: number): string {
 export function getCategoryColor(category: string): string {
   switch (category) {
     case "hair": return "bg-purple-100 text-purple-800";
+    case "beard": return "bg-amber-100 text-amber-800";
     case "wellness": return "bg-green-100 text-green-800";
     case "fitness": return "bg-blue-100 text-blue-800";
     default: return "bg-muted text-muted-foreground";

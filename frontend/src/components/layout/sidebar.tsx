@@ -31,6 +31,7 @@ export function Sidebar({ products, insightCount = 0 }: SidebarProps) {
 
   const categories = [
     { key: "hair", label: "Hair", items: products.filter((p) => p.category === "hair") },
+    { key: "beard", label: "Beard", items: products.filter((p) => p.category === "beard") },
     { key: "wellness", label: "Wellness", items: products.filter((p) => p.category === "wellness") },
     { key: "fitness", label: "Fitness", items: products.filter((p) => p.category === "fitness") },
   ];
