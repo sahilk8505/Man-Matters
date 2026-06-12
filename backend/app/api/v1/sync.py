@@ -1,16 +1,20 @@
 """Meta sync and upload endpoints."""
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 from typing import List, Optional
+import asyncio
 import csv
 import io
+import logging
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, text
 
 from app.api.deps import DbDep, CurrentUser
 from app.models.orm import SyncLog, Creative, Product, CreativeDailyMetrics
+from app.core.database import AsyncSessionLocal
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -26,6 +30,118 @@ async def trigger_meta_sync(
     from app.workers.tasks import sync_meta_data
     sync_meta_data.delay()
     return {"status": "queued", "message": f"Meta sync started for last {lookback_days} days"}
+
+
+@router.get("/status")
+async def sync_status(db: DbDep):
+    """Return the current data freshness: last date synced, days behind, row count."""
+    result = await db.execute(
+        text(
+            "SELECT MAX(date) AS last_date, COUNT(*) AS total_rows "
+            "FROM creative_daily_metrics WHERE attribution_window = '7d_click'"
+        )
+    )
+    row = result.fetchone()
+    last_date = row[0]
+    yesterday = date.today() - timedelta(days=1)
+    days_behind = (yesterday - last_date).days if last_date else None
+    return {
+        "last_date": str(last_date) if last_date else None,
+        "total_rows": row[1],
+        "is_current": last_date >= yesterday if last_date else False,
+        "days_behind": days_behind,
+    }
+
+
+@router.post("/yesterday")
+async def sync_yesterday(background_tasks: BackgroundTasks):
+    """Sync yesterday's Meta Ads data via the Meta Marketing API."""
+    yesterday = date.today() - timedelta(days=1)
+    background_tasks.add_task(_sync_date_background, str(yesterday))
+    return {
+        "status": "started",
+        "date": str(yesterday),
+        "message": f"Syncing {yesterday} data in background. Check /sync/status for progress.",
+    }
+
+
+async def _sync_date_background(date_str: str):
+    """Background task: fetch Meta insights for one date and upsert into DB."""
+    from app.services.meta_client import meta_client
+    from app.models.genome import MetaAccount
+    from app.workers.tasks import _upsert_daily_metrics, _build_creative_map
+
+    target_date = date.fromisoformat(date_str)
+    loop = asyncio.get_event_loop()
+
+    async with AsyncSessionLocal() as db:
+        sync_log = SyncLog(sync_type="meta_api_yesterday", status="running")
+        db.add(sync_log)
+        await db.commit()
+
+        total_processed = 0
+        total_failed = 0
+
+        try:
+            accounts = await db.execute(
+                select(MetaAccount).where(MetaAccount.is_active == True)
+            )
+            account_list = accounts.scalars().all()
+
+            for account in account_list:
+                try:
+                    # Facebook SDK is sync — run in thread to avoid blocking event loop
+                    insights = await loop.run_in_executor(
+                        None,
+                        lambda aid=account.account_id: meta_client.get_insights(
+                            account_id=aid,
+                            date_start=target_date,
+                            date_stop=target_date,
+                            attribution_window="7d_click",
+                        ),
+                    )
+
+                    creative_map = await _build_creative_map(db, account.account_id)
+
+                    for insight in insights:
+                        try:
+                            creative_id = creative_map.get(insight["meta_ad_id"])
+                            if creative_id:
+                                await _upsert_daily_metrics(db, creative_id, insight)
+                                total_processed += 1
+                        except Exception as e:
+                            logger.error(f"Failed to upsert insight: {e}")
+                            total_failed += 1
+
+                    await db.commit()
+
+                except Exception as e:
+                    logger.error(f"Failed to sync account {account.account_id}: {e}")
+
+            # Run fatigue recalculation directly (not via Celery — asyncio loop bug)
+            try:
+                from app.workers.tasks import _recalculate_fatigue_async
+                await _recalculate_fatigue_async()
+            except Exception as e:
+                logger.warning(f"Fatigue recalc after sync failed: {e}")
+
+            sync_log.status = "completed"
+            sync_log.records_processed = total_processed
+            sync_log.records_failed = total_failed
+            sync_log.records_fetched = total_processed + total_failed
+            sync_log.completed_at = datetime.now(timezone.utc)
+            db.add(sync_log)
+            await db.commit()
+
+            logger.info(f"Yesterday sync complete for {date_str}: {total_processed} rows")
+
+        except Exception as e:
+            logger.error(f"Yesterday sync failed: {e}")
+            sync_log.status = "failed"
+            sync_log.error_message = str(e)[:500]
+            sync_log.completed_at = datetime.now(timezone.utc)
+            db.add(sync_log)
+            await db.commit()
 
 
 @router.get("/logs")

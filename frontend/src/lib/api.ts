@@ -255,6 +255,14 @@ export const sync = {
   triggerMeta: () =>
     request<{ status: string }>("/sync/meta/trigger", { method: "POST" }),
 
+  status: () =>
+    request<{ last_date: string | null; total_rows: number; is_current: boolean; days_behind: number | null }>(
+      "/sync/status"
+    ),
+
+  syncYesterday: () =>
+    request<{ status: string; date: string; message: string }>("/sync/yesterday", { method: "POST" }),
+
   logs: (limit = 20) =>
     request<Record<string, unknown>[]>(`/sync/logs?limit=${limit}`),
 

@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
-  Zap, RefreshCw, Bell, ArrowRight, ShoppingCart, DollarSign
+  Zap, RefreshCw, Bell, ArrowRight, ShoppingCart, DollarSign, Calendar
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import Link from "next/link";
-import { analytics, insights as insightsApi } from "@/lib/api";
+import { analytics, insights as insightsApi, sync as syncApi } from "@/lib/api";
 import type { ExecutiveSummary, Insight } from "@/types";
 import {
   formatCurrency, formatRoas, formatCtr, formatNumber,
@@ -29,22 +29,33 @@ export default function ExecutiveDashboard() {
   const [summary, setSummary] = useState<ExecutiveSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{
+    last_date: string | null;
+    is_current: boolean;
+    days_behind: number | null;
+  } | null>(null);
 
   useEffect(() => {
     analytics.executiveSummary()
       .then(setSummary)
       .catch(() => toast.error("Failed to load dashboard data"))
       .finally(() => setLoading(false));
+
+    syncApi.status()
+      .then(setSyncStatus)
+      .catch(() => {});
   }, []);
 
-  const handleSync = async () => {
+  const handleSyncYesterday = async () => {
     setSyncing(true);
     try {
-      const { sync } = await import("@/lib/api");
-      await sync.triggerMeta();
-      toast.success("Meta sync started. Data will update shortly.");
-    } catch {
-      toast.error("Sync failed. Check your Meta credentials.");
+      const result = await syncApi.syncYesterday();
+      toast.success(`Syncing ${result.date} data in background — check back in ~30s.`);
+      // Refresh status after a short delay
+      setTimeout(() => syncApi.status().then(setSyncStatus).catch(() => {}), 5000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Sync failed: ${msg}`);
     } finally {
       setSyncing(false);
     }
@@ -103,6 +114,25 @@ export default function ExecutiveDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Data freshness badge */}
+          {syncStatus && (
+            <div
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
+                syncStatus.is_current
+                  ? "bg-green-50 text-green-700 border-green-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              {syncStatus.last_date
+                ? `Data through ${new Date(syncStatus.last_date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+                : "No data"}
+              {syncStatus.days_behind != null && syncStatus.days_behind > 0 && (
+                <span className="font-medium">· {syncStatus.days_behind}d behind</span>
+              )}
+            </div>
+          )}
+
           {insightData.unread_count > 0 && (
             <Link
               href="/insights"
@@ -112,13 +142,15 @@ export default function ExecutiveDashboard() {
               {insightData.unread_count} new insights
             </Link>
           )}
+
           <button
-            onClick={handleSync}
+            onClick={handleSyncYesterday}
             disabled={syncing}
+            title={syncStatus?.is_current ? "Data is already current" : "Sync yesterday's Meta Ads data"}
             className="flex items-center gap-2 text-sm px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing..." : "Sync Meta"}
+            {syncing ? "Syncing..." : "Sync Yesterday"}
           </button>
         </div>
       </div>
