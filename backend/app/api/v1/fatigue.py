@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 from sqlalchemy import select, func
 
 from app.api.deps import DbDep, CurrentUser
@@ -16,12 +16,24 @@ from app.models.orm import (
 router = APIRouter(prefix="/fatigue", tags=["fatigue"])
 
 
+@router.post("/recalculate")
+async def trigger_fatigue_recalculate(background_tasks: BackgroundTasks):
+    """Trigger a fatigue score recalculation for all active creatives."""
+    from app.workers.tasks import _recalculate_fatigue_async
+    background_tasks.add_task(_recalculate_fatigue_async)
+    return {"status": "started", "message": "Fatigue recalculation running in background (~30s)"}
+
+
 @router.get("/dashboard")
 async def fatigue_dashboard(db: DbDep, _: CurrentUser, product_id: Optional[str] = Query(None)):
     """Full fatigue dashboard data."""
-    today = date.today()
+    # Use the most recent calculated_date rather than today() to handle gaps
+    # between data syncs and the current date.
+    latest_date_row = await db.execute(select(func.max(FatigueScore.calculated_date)))
+    latest_date = latest_date_row.scalar() or date.today()
+
     filters = [
-        FatigueScore.calculated_date == today,
+        FatigueScore.calculated_date == latest_date,
     ]
     if product_id:
         filters.append(FatigueScore.product_id == UUID(product_id))
@@ -84,11 +96,8 @@ async def fatigue_dashboard(db: DbDep, _: CurrentUser, product_id: Optional[str]
         for r in urgent
     ]
 
-    # Average lifespan by narrative (last 90 days)
-    cutoff_90 = today - timedelta(days=90)
-
     return {
-        "as_of_date": today.isoformat(),
+        "as_of_date": latest_date.isoformat(),
         "distribution": distribution,
         "urgent_creatives": urgent_list,
     }

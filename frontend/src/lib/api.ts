@@ -131,6 +131,9 @@ export const analytics = {
 // ---------------------------------------------------------------------------
 
 export const fatigue = {
+  recalculate: () =>
+    request<{ status: string; message: string }>("/fatigue/recalculate", { method: "POST" }),
+
   dashboard: (productId?: string) =>
     request<import("@/types").FatigueDashboard>(
       `/fatigue/dashboard${productId ? `?product_id=${productId}` : ""}`

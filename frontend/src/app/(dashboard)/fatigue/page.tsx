@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Clock, Activity, TrendingDown } from "lucide-react";
+import { AlertTriangle, Clock, Activity, TrendingDown, RefreshCw } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell, Legend,
@@ -29,6 +29,7 @@ export default function FatigueDashboard() {
   const [selectedCreative, setSelectedCreative] = useState<string | null>(null);
   const [fatigueCurve, setFatigueCurve] = useState<FatigueCurvePoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recalculating, setRecalculating] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -57,6 +58,29 @@ export default function FatigueDashboard() {
     fatigueApi.narrativeLifespans(pid || undefined).then(setLifespans);
   };
 
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      await fatigueApi.recalculate();
+      toast.success("Fatigue recalculation started (~30s). Refresh the page to see updated scores.");
+      // After 35s, reload data automatically
+      setTimeout(() => {
+        Promise.all([
+          fatigueApi.dashboard(selectedProduct || undefined),
+          fatigueApi.narrativeLifespans(selectedProduct || undefined),
+        ]).then(([dash, lifespanData]) => {
+          setDashboard(dash as FatigueDashboard);
+          setLifespans(lifespanData as NarrativeLifespan[]);
+          toast.success("Fatigue scores refreshed.");
+        }).catch(() => {});
+      }, 35_000);
+    } catch {
+      toast.error("Failed to trigger recalculation.");
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   if (loading) return <LoadingSkeleton />;
 
   const dist = (dashboard?.distribution || {}) as Record<string, { count: number; avg_score: number }>;
@@ -71,16 +95,26 @@ export default function FatigueDashboard() {
             As of {formatDate(dashboard?.as_of_date)} · Multi-dimensional fatigue scoring
           </p>
         </div>
-        <select
-          value={selectedProduct}
-          onChange={(e) => handleProductFilter(e.target.value)}
-          className="text-sm border border-border rounded-lg px-3 py-2 bg-background"
-        >
-          <option value="">All Products</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            className="flex items-center gap-2 text-sm px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${recalculating ? "animate-spin" : ""}`} />
+            {recalculating ? "Recalculating..." : "Recalculate Fatigue"}
+          </button>
+          <select
+            value={selectedProduct}
+            onChange={(e) => handleProductFilter(e.target.value)}
+            className="text-sm border border-border rounded-lg px-3 py-2 bg-background"
+          >
+            <option value="">All Products</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Stage Distribution */}
