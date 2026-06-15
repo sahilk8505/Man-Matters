@@ -132,7 +132,11 @@ export const analytics = {
 
 export const fatigue = {
   recalculate: () =>
-    request<{ status: string; message: string }>("/fatigue/recalculate", { method: "POST" }),
+    request<{
+      status: string;
+      as_of_date: string;
+      distribution: Record<string, { count: number; avg_score: number }>;
+    }>("/fatigue/recalculate", { method: "POST" }),
 
   dashboard: (productId?: string) =>
     request<import("@/types").FatigueDashboard>(

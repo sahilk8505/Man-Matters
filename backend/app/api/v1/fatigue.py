@@ -17,11 +17,38 @@ router = APIRouter(prefix="/fatigue", tags=["fatigue"])
 
 
 @router.post("/recalculate")
-async def trigger_fatigue_recalculate(background_tasks: BackgroundTasks):
-    """Trigger a fatigue score recalculation for all active creatives."""
+async def trigger_fatigue_recalculate(db: DbDep):
+    """
+    Run fatigue recalculation synchronously and return the new distribution.
+    Typically takes 10–30 s for 427 creatives.
+    """
     from app.workers.tasks import _recalculate_fatigue_async
-    background_tasks.add_task(_recalculate_fatigue_async)
-    return {"status": "started", "message": "Fatigue recalculation running in background (~30s)"}
+    await _recalculate_fatigue_async()
+
+    # Return fresh distribution so the frontend can update immediately
+    latest_date_row = await db.execute(select(func.max(FatigueScore.calculated_date)))
+    latest_date = latest_date_row.scalar() or date.today()
+
+    dist_rows = await db.execute(
+        select(
+            FatigueScore.fatigue_stage,
+            func.count(FatigueScore.creative_id).label("count"),
+            func.avg(FatigueScore.fatigue_score).label("avg_score"),
+        )
+        .join(Creative, Creative.id == FatigueScore.creative_id)
+        .where(FatigueScore.calculated_date == latest_date)
+        .where(Creative.status == "active")
+        .group_by(FatigueScore.fatigue_stage)
+    )
+    distribution = {
+        r.fatigue_stage: {"count": r.count, "avg_score": round(float(r.avg_score or 0), 1)}
+        for r in dist_rows
+    }
+    return {
+        "status": "completed",
+        "as_of_date": latest_date.isoformat(),
+        "distribution": distribution,
+    }
 
 
 @router.get("/dashboard")
