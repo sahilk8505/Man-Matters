@@ -89,7 +89,9 @@ export default function FatigueDashboard() {
 
   useEffect(() => {
     if (selectedCreative) {
-      fatigueApi.curve(selectedCreative).then(setFatigueCurve);
+      fatigueApi.curve(selectedCreative)
+        .then(setFatigueCurve)
+        .catch(() => setFatigueCurve([]));
     }
   }, [selectedCreative]);
 
@@ -174,9 +176,9 @@ export default function FatigueDashboard() {
               <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mb-3 ${getFatigueBg(stage)}`}>
                 {getFatigueLabel(stage)}
               </div>
-              <p className="text-3xl font-bold">{d.count}</p>
-              <p className="text-xs text-muted-foreground mt-1">Avg score: {d.avg_score.toFixed(0)}/100</p>
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono">{band.range}</p>
+              <p className="text-3xl font-bold">{d.count ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Avg score: {(d.avg_score ?? 0).toFixed(0)}/100</p>
+              <p className="text-xs text-muted-foreground mt-0.5 font-mono">{band?.range ?? ""}</p>
               {total > 0 && (
                 <div className="mt-2 bg-muted rounded-full h-1.5">
                   <div
@@ -321,8 +323,8 @@ export default function FatigueDashboard() {
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2">
-                    <div className="text-sm font-bold" style={{ color: getFatigueScoreColor(c.fatigue_score) }}>
-                      {c.fatigue_score.toFixed(0)}
+                    <div className="text-sm font-bold" style={{ color: getFatigueScoreColor(c.fatigue_score ?? 0) }}>
+                      {(c.fatigue_score ?? 0).toFixed(0)}
                     </div>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getFatigueBg(c.fatigue_stage)}`}>
                       {getFatigueLabel(c.fatigue_stage)}
@@ -337,7 +339,7 @@ export default function FatigueDashboard() {
                     <div>
                       <p className="text-xs text-muted-foreground">Frequency</p>
                       <p className={`text-sm font-medium ${c.current_frequency > 4 ? "text-red-600" : ""}`}>
-                        {c.current_frequency.toFixed(1)}×
+                        {(c.current_frequency ?? 0).toFixed(1)}×
                       </p>
                     </div>
                   )}
