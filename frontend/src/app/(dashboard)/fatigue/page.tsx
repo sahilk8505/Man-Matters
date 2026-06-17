@@ -68,23 +68,59 @@ export default function FatigueDashboard() {
   const [selectedCreative, setSelectedCreative] = useState<string | null>(null);
   const [fatigueCurve, setFatigueCurve] = useState<FatigueCurvePoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendError, setBackendError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<"reel" | "video" | "static" | "carousel">("reel");
 
+  const loadData = (productId?: string) => {
+    setLoading(true);
+    setBackendError(false);
+    Promise.all([
+      productsApi.list(),
+      fatigueApi.dashboard(productId),
+      fatigueApi.narrativeLifespans(productId),
+    ])
+      .then(([prods, dash, lifespanData]) => {
+        setProducts(prods as Product[]);
+        setDashboard(dash as FatigueDashboard);
+        setLifespans(lifespanData as NarrativeLifespan[]);
+        setBackendError(false);
+      })
+      .catch(() => {
+        setBackendError(true);
+        toast.error("Backend unreachable — check that the server is running.");
+      })
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setBackendError(false);
     Promise.all([
       productsApi.list(),
       fatigueApi.dashboard(),
       fatigueApi.narrativeLifespans(),
     ])
       .then(([prods, dash, lifespanData]) => {
+        if (cancelled) return;
         setProducts(prods as Product[]);
         setDashboard(dash as FatigueDashboard);
         setLifespans(lifespanData as NarrativeLifespan[]);
+        setBackendError(false);
       })
-      .catch(() => toast.error("Failed to load fatigue data"))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (cancelled) return;
+        setBackendError(true);
+        // Auto-retry once after 5 s (backend may still be starting)
+        setTimeout(() => {
+          if (!cancelled) loadData();
+        }, 5000);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -97,8 +133,7 @@ export default function FatigueDashboard() {
 
   const handleProductFilter = (pid: string) => {
     setSelectedProduct(pid);
-    fatigueApi.dashboard(pid || undefined).then(setDashboard);
-    fatigueApi.narrativeLifespans(pid || undefined).then(setLifespans);
+    loadData(pid || undefined);
   };
 
   /** Recalculate scores synchronously, then auto-update the dashboard state. */
@@ -135,6 +170,25 @@ export default function FatigueDashboard() {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* ── Backend offline banner ──────────────────────────────────────── */}
+      {backendError && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              <strong>Backend offline.</strong> Run <code className="bg-red-100 px-1 rounded font-mono text-xs">pm2 start ecosystem.config.js</code> in the project folder, then click Reconnect.
+            </span>
+          </div>
+          <button
+            onClick={() => loadData(selectedProduct || undefined)}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-100 hover:bg-red-200 rounded-lg transition-colors"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Reconnect
+          </button>
+        </div>
+      )}
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
